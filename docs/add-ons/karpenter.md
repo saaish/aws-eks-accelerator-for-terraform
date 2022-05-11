@@ -21,7 +21,7 @@ You can optionally customize the Helm chart that deploys `Karpenter` via the fol
     name                       = "karpenter"
     chart                      = "karpenter"
     repository                 = "https://charts.karpenter.sh"
-    version                    = "0.5.4"
+    version                    = "0.6.3"
     namespace                  = "karpenter"
     values = [templatefile("${path.module}/values.yaml", {
          eks_cluster_id       = var.eks_cluster_id,
@@ -37,7 +37,7 @@ You can optionally customize the Helm chart that deploys `Karpenter` via the fol
 ### GitOps Configuration
 The following properties are made available for use when managing the add-on via GitOps.
 
-Refer to [locals.tf](modules/kubernetes-addons/karpenter/locals.tf) for latest config. GitOps with ArgoCD Add-on repo is located [here](https://github.com/aws-samples/ssp-eks-add-ons/blob/main/chart/values.yaml)
+Refer to [locals.tf](modules/kubernetes-addons/karpenter/locals.tf) for latest config. GitOps with ArgoCD Add-on repo is located [here](https://github.com/aws-samples/eks-blueprints-add-ons/blob/main/chart/values.yaml)
 
 ```hcl
   argocd_gitops_config = {

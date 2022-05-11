@@ -1,7 +1,4 @@
 # Default values for vertical-pod-autoscaler.
-serviceAccount:
-  name: ${vpa_sa_name}
-
 recommender:
   image:
     repository: k8s.gcr.io/autoscaling/vpa-recommender

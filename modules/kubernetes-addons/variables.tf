@@ -3,6 +3,12 @@ variable "eks_cluster_id" {
   type        = string
 }
 
+variable "eks_cluster_domain" {
+  description = "The domain for the EKS cluster."
+  default     = ""
+  type        = string
+}
+
 variable "eks_worker_security_group_id" {
   description = "EKS Worker Security group Id created by EKS module"
   default     = ""
@@ -15,19 +21,31 @@ variable "auto_scaling_group_names" {
   type        = list(string)
 }
 
-variable "node_groups_iam_role_arn" {
-  type        = list(string)
-  default     = []
-  description = "Node Groups IAM role ARNs"
-}
-
 variable "tags" {
   type        = map(string)
   default     = {}
   description = "Additional tags (e.g. `map('BusinessUnit`,`XYZ`)"
 }
 
+variable "irsa_iam_role_path" {
+  type        = string
+  default     = "/"
+  description = "IAM role path for IRSA roles"
+}
+
+variable "irsa_iam_permissions_boundary" {
+  type        = string
+  default     = ""
+  description = "IAM permissions boundary for IRSA roles"
+}
+
 #-----------EKS MANAGED ADD-ONS------------
+variable "enable_ipv6" {
+  description = "Enable Ipv6 network. Attaches new VPC CNI policy to the IRSA role"
+  default     = false
+  type        = bool
+}
+
 variable "amazon_eks_vpc_cni_config" {
   description = "ConfigMap of Amazon EKS VPC CNI add-on"
   type        = any
@@ -102,16 +120,114 @@ variable "crossplane_helm_config" {
   description = "Crossplane Helm Chart config"
 }
 
-variable "crossplane_provider_aws" {
+variable "crossplane_aws_provider" {
   description = "AWS Provider config for Crossplane"
   type = object({
+    enable                   = bool
     provider_aws_version     = string
     additional_irsa_policies = list(string)
   })
   default = {
-    provider_aws_version     = "v0.23.0"
+    enable                   = false
+    provider_aws_version     = "v0.24.1"
     additional_irsa_policies = []
   }
+}
+
+variable "crossplane_jet_aws_provider" {
+  description = "AWS Provider Jet AWS config for Crossplane"
+  type = object({
+    enable                   = bool
+    provider_aws_version     = string
+    additional_irsa_policies = list(string)
+  })
+  default = {
+    enable                   = false
+    provider_aws_version     = "v0.24.1"
+    additional_irsa_policies = []
+  }
+}
+
+#-----------ONDAT ADDON-------------
+variable "enable_ondat" {
+  type        = bool
+  default     = false
+  description = "Enable Ondat add-on"
+}
+
+variable "ondat_helm_config" {
+  type        = any
+  default     = {}
+  description = "Ondat Helm Chart config"
+}
+
+variable "ondat_irsa_policies" {
+  type        = list(string)
+  default     = []
+  description = "IAM policy ARNs for Ondat IRSA"
+}
+
+variable "ondat_create_cluster" {
+  type        = bool
+  default     = true
+  description = "Create cluster resources"
+}
+
+variable "ondat_etcd_endpoints" {
+  type        = list(string)
+  default     = []
+  description = "List of etcd endpoints for Ondat"
+}
+
+variable "ondat_etcd_ca" {
+  type        = string
+  default     = null
+  description = "CA content for Ondat etcd"
+}
+
+variable "ondat_etcd_cert" {
+  type        = string
+  default     = null
+  description = "Certificate content for Ondat etcd"
+}
+
+variable "ondat_etcd_key" {
+  type        = string
+  default     = null
+  sensitive   = true
+  description = "Private key content for Ondat etcd"
+}
+
+variable "ondat_admin_username" {
+  type        = string
+  default     = "storageos"
+  description = "Username for Ondat admin user"
+}
+
+variable "ondat_admin_password" {
+  type        = string
+  default     = "storageos"
+  sensitive   = true
+  description = "Password for Ondat admin user"
+}
+
+#-----------External DNS ADDON-------------
+variable "enable_external_dns" {
+  type        = bool
+  default     = false
+  description = "External DNS add-on."
+}
+
+variable "external_dns_helm_config" {
+  type        = any
+  default     = {}
+  description = "External DNS Helm Chart config"
+}
+
+variable "external_dns_irsa_policies" {
+  type        = list(string)
+  description = "Additional IAM policies for a IAM role for service accounts"
+  default     = []
 }
 
 #-----------Amazon Managed Service for Prometheus-------------
@@ -127,16 +243,10 @@ variable "amazon_prometheus_workspace_endpoint" {
   description = "AWS Managed Prometheus WorkSpace Endpoint"
 }
 
-variable "amazon_prometheus_ingest_iam_role_arn" {
+variable "amazon_prometheus_workspace_region" {
   type        = string
   default     = null
-  description = "AWS Managed Prometheus WorkSpaceSpace IAM role ARN"
-}
-
-variable "amazon_prometheus_ingest_service_account" {
-  type        = string
-  default     = null
-  description = "AWS Managed Prometheus Ingest Service Account"
+  description = "AWS Managed Prometheus WorkSpace Region"
 }
 
 #-----------PROMETHEUS-------------
@@ -165,6 +275,73 @@ variable "metrics_server_helm_config" {
   description = "Metrics Server Helm Chart config"
 }
 
+#-----------TETRATE ISTIO-------------
+variable "enable_tetrate_istio" {
+  type        = bool
+  default     = false
+  description = "Enable Tetrate Istio add-on"
+}
+
+variable "tetrate_istio_distribution" {
+  type        = string
+  default     = "TID"
+  description = "Istio distribution"
+}
+
+variable "tetrate_istio_version" {
+  type        = string
+  default     = ""
+  description = "Istio version"
+}
+
+variable "tetrate_istio_install_base" {
+  type        = bool
+  default     = true
+  description = "Install Istio `base` Helm Chart"
+}
+
+variable "tetrate_istio_install_cni" {
+  type        = bool
+  default     = true
+  description = "Install Istio `cni` Helm Chart"
+}
+
+variable "tetrate_istio_install_istiod" {
+  type        = bool
+  default     = true
+  description = "Install Istio `istiod` Helm Chart"
+}
+
+variable "tetrate_istio_install_gateway" {
+  type        = bool
+  default     = true
+  description = "Install Istio `gateway` Helm Chart"
+}
+
+variable "tetrate_istio_base_helm_config" {
+  type        = any
+  default     = {}
+  description = "Istio `base` Helm Chart config"
+}
+
+variable "tetrate_istio_cni_helm_config" {
+  type        = any
+  default     = {}
+  description = "Istio `cni` Helm Chart config"
+}
+
+variable "tetrate_istio_istiod_helm_config" {
+  type        = any
+  default     = {}
+  description = "Istio `istiod` Helm Chart config"
+}
+
+variable "tetrate_istio_gateway_helm_config" {
+  type        = any
+  default     = {}
+  description = "Istio `gateway` Helm Chart config"
+}
+
 #-----------TRAEFIK-------------
 variable "enable_traefik" {
   type        = bool
@@ -191,6 +368,19 @@ variable "agones_helm_config" {
   description = "Agones GameServer Helm Chart config"
 }
 
+#-----------AWS EFS CSI DRIVER ADDON-------------
+variable "enable_aws_efs_csi_driver" {
+  type        = bool
+  default     = false
+  description = "Enable AWS EFS CSI driver add-on"
+}
+
+variable "aws_efs_csi_driver_helm_config" {
+  type        = any
+  description = "AWS EFS CSI driver Helm Chart config"
+  default     = {}
+}
+
 #-----------AWS LB Ingress Controller-------------
 variable "enable_aws_load_balancer_controller" {
   type        = bool
@@ -204,12 +394,6 @@ variable "aws_load_balancer_controller_helm_config" {
   default     = {}
 }
 
-variable "aws_load_balancer_controller_irsa_permissions_boundary" {
-  type        = string
-  description = "IAM Policy ARN for IRSA IAM role permissions boundary"
-  default     = ""
-}
-
 #-----------NGINX-------------
 variable "enable_ingress_nginx" {
   type        = bool
@@ -221,18 +405,6 @@ variable "ingress_nginx_helm_config" {
   description = "Ingress Nginx Helm Chart config"
   type        = any
   default     = {}
-}
-
-variable "nginx_irsa_policies" {
-  type        = list(string)
-  description = "Additional IAM policies for a IAM role for service accounts"
-  default     = []
-}
-
-variable "nginx_ingress_controller_irsa_permissions_boundary" {
-  type        = string
-  description = "IAM Policy ARN for IRSA IAM role permissions boundary"
-  default     = ""
 }
 
 #-----------SPARK K8S OPERATOR-------------
@@ -284,6 +456,26 @@ variable "aws_for_fluentbit_cw_log_group_kms_key_arn" {
   description = "FluentBit CloudWatch Log group KMS Key"
   default     = null
 }
+
+#-----------AWS CloudWatch Metrics-------------
+variable "enable_aws_cloudwatch_metrics" {
+  type        = bool
+  default     = false
+  description = "Enable AWS CloudWatch Metrics add-on for Container Insights"
+}
+
+variable "aws_cloudwatch_metrics_helm_config" {
+  type        = any
+  description = "AWS CloudWatch Metrics Helm Chart config"
+  default     = {}
+}
+
+variable "aws_cloudwatch_metrics_irsa_policies" {
+  type        = list(string)
+  description = "Additional IAM policies for a IAM role for service accounts"
+  default     = []
+}
+
 #-----------FARGATE FLUENT BIT-------------
 variable "enable_fargate_fluentbit" {
   type        = bool
@@ -309,17 +501,18 @@ variable "cert_manager_helm_config" {
   description = "Cert Manager Helm Chart config"
   default     = {}
 }
-#-----------AWS OPEN TELEMETRY ADDON-------------
-variable "enable_aws_open_telemetry" {
+
+#-----------Argo Rollouts ADDON-------------
+variable "enable_argo_rollouts" {
   type        = bool
   default     = false
-  description = "Enable AWS Open Telemetry Distro add-on"
+  description = "Enable Argo Rollouts add-on"
 }
 
-variable "aws_open_telemetry_addon_config" {
+variable "argo_rollouts_helm_config" {
   type        = any
-  default     = {}
-  description = "AWS Open Telemetry Distro add-on config"
+  default     = null
+  description = "Argo Rollouts Helm Chart config"
 }
 
 #-----------ARGOCD ADDON-------------
@@ -366,6 +559,12 @@ variable "aws_node_termination_handler_helm_config" {
   default     = {}
 }
 
+variable "aws_node_termination_handler_irsa_policies" {
+  type        = list(string)
+  description = "Additional IAM policies for a IAM role for service accounts"
+  default     = []
+}
+
 #-----------KARPENTER ADDON-------------
 variable "enable_karpenter" {
   type        = bool
@@ -390,6 +589,7 @@ variable "karpenter_node_iam_instance_profile" {
   default     = ""
   type        = string
 }
+
 #-----------KEDA ADDON-------------
 variable "enable_keda" {
   type        = bool
@@ -403,29 +603,49 @@ variable "keda_helm_config" {
   description = "KEDA Event-based autoscaler add-on config"
 }
 
-variable "keda_create_irsa" {
-  type        = bool
-  description = "Indicates if the add-on should create a IAM role + service account"
-  default     = true
-}
-
 variable "keda_irsa_policies" {
   type        = list(string)
   description = "Additional IAM policies for a IAM role for service accounts"
   default     = []
 }
 
-#-----------Vertical Pod Autoscaler(VPA) ADDON-------------
+#-----------Kubernetes Dashboard ADDON-------------
+variable "enable_kubernetes_dashboard" {
+  type        = bool
+  default     = false
+  description = "Enable Kubernetes Dashboard add-on"
+}
+
+variable "kubernetes_dashboard_helm_config" {
+  type        = any
+  default     = null
+  description = "Kubernetes Dashboard Helm Chart config"
+}
+
+#-----------HashiCorp Vault-------------
+variable "enable_vault" {
+  type        = bool
+  default     = false
+  description = "Enable HashiCorp Vault add-on"
+}
+
+variable "vault_helm_config" {
+  type        = any
+  default     = null
+  description = "HashiCorp Vault Helm Chart config"
+}
+
+#------Vertical Pod Autoscaler(VPA) ADDON--------
 variable "enable_vpa" {
   type        = bool
   default     = false
-  description = "Enable Kubernetes Vertical Pod Autoscaler add-on"
+  description = "Enable Vertical Pod Autoscaler add-on"
 }
 
 variable "vpa_helm_config" {
   type        = any
-  default     = {}
-  description = "Vertical Pod Autoscaler Helm Chart config"
+  default     = null
+  description = "VPA Helm Chart config"
 }
 
 #-----------Apache YuniKorn ADDON-------------
@@ -437,33 +657,59 @@ variable "enable_yunikorn" {
 
 variable "yunikorn_helm_config" {
   type        = any
-  default     = {}
-  description = "YuniKorn K8s scheduler Helm Chart config"
+  default     = null
+  description = "YuniKorn Helm Chart config"
 }
 
-#-----------Argo Rollouts ADDON-------------
-variable "enable_argo_rollouts" {
+#-----------AWS PCA ISSUER-------------
+variable "enable_aws_privateca_issuer" {
   type        = bool
   default     = false
-  description = "Enable Argo Rollouts add-on"
+  description = "Enable PCA Issuer"
 }
 
-variable "argo_rollouts_helm_config" {
+variable "aws_privateca_issuer_helm_config" {
   type        = any
-  default     = null
-  description = "Argo Rollouts Helm Chart config"
+  description = "PCA Issuer Helm Chart config"
+  default     = {}
 }
 
-variable "argo_rollouts_irsa_permissions_boundary" {
+variable "aws_privateca_acmca_arn" {
   type        = string
   default     = ""
-  description = "IAM Policy ARN for IRSA IAM role permissions boundary"
+  description = "ARN of AWS ACM PCA"
 }
 
-variable "argo_rollouts_irsa_policies" {
+variable "aws_privateca_issuer_irsa_policies" {
   type        = list(string)
   default     = []
-  description = "IAM policy ARNs for Argo Rollouts IRSA"
+  description = "IAM policy ARNs for AWS ACM PCA IRSA"
+}
+
+#-----------OPENTELEMETRY OPERATOR-------------
+variable "enable_opentelemetry_operator" {
+  type        = bool
+  default     = false
+  description = "Enable opentelemetry operator add-on"
+}
+
+variable "opentelemetry_operator_helm_config" {
+  type        = any
+  default     = {}
+  description = "Opentelemetry Operator Helm Chart config"
+}
+
+#-----------AWS Observability patterns-------------
+variable "enable_adot_collector_java" {
+  type        = bool
+  default     = false
+  description = "Enable metrics for JMX workloads"
+}
+
+variable "adot_collector_java_helm_config" {
+  type        = any
+  default     = {}
+  description = "ADOT Collector Java Helm Chart config"
 }
 
 #-----------AWS Observability patterns-------------
