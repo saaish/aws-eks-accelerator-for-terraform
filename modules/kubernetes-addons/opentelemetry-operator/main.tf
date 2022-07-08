@@ -26,7 +26,8 @@ data "aws_eks_addon_version" "this" {
 
   addon_name = local.name
   # Need to allow both config routes - for managed and self-managed configs
-  kubernetes_version = try(var.addon_config.kubernetes_version, var.helm_config.kubernetes_version)
+  #kubernetes_version = try(var.addon_config.kubernetes_version, var.helm_config.kubernetes_version)
+  kubernetes_version = "1.20"
   most_recent        = try(var.addon_config.most_recent, var.helm_config.most_recent, true)
 }
 
