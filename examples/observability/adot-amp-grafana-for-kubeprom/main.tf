@@ -1329,6 +1329,7 @@ groups:
   - name: kubprom-02
     rules:
       - record: count:up0
+        expr: count without(instance, pod, node) (up == 0)
 EOT
 }
 
